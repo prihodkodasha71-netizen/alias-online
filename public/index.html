@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alias Online</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+        h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .subtitle { font-size: 1.1em; margin-bottom: 30px; opacity: 0.9; }
+        input, select {
+            width: 100%;
+            padding: 15px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: scale(1.02); }
+        .btn-create { background: #4CAF50; color: white; }
+        .btn-join { background: #2196F3; color: white; }
+        .btn-guess { background: #4CAF50; color: white; font-size: 24px; padding: 20px; }
+        .btn-skip { background: #ff9800; color: white; }
+        .btn-start { background: #e91e63; color: white; }
+        .hidden { display: none; }
+        .word-display {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 30px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 15px;
+        }
+        .timer { font-size: 3em; font-weight: bold; margin: 15px 0; }
+        .player-list { text-align: left; margin: 15px 0; }
+        .player-item {
+            padding: 10px 15px;
+            background: rgba(255,255,255,0.1);
+            margin: 5px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .room-code {
+            font-size: 2em;
+            font-weight: bold;
+            letter-spacing: 5px;
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        .score { color: #ffd700; font-weight: bold; }
+        .round-info { font-size: 1.2em; margin: 10px 0; opacity: 0.9; }
+        .waiting { font-size: 1.3em; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="menuScreen">
+            <h1>Alias</h1>
+            <p class="subtitle">Online Party Game</p>
+            <input type="text" id="playerName" placeholder="Your name" maxlength="15">
+            <select id="language">
+                <option value="uk">Ukrainian</option>
+                <option value="en">English</option>
+                <option value="ru">Russian</option>
+            </select>
+            <select id="roundTime">
+                <option value="30">30 sec</option>
+                <option value="60" selected>60 sec</option>
+                <option value="90">90 sec</option>
+            </select>
+            <button class="btn-create" onclick="createRoom()">Create Room</button>
+            <input type="text" id="roomCodeInput" placeholder="Room code" maxlength="6" style="text-transform:uppercase">
+            <button class="btn-join" onclick="joinRoom()">Join Room</button>
+        </div>
+        <div id="lobbyScreen" class="hidden">
+            <h1>Alias</h1>
+            <p>Room Code:</p>
+            <div class="room-code" id="roomCode"></div>
+            <div class="player-list" id="lobbyPlayers"></div>
+            <button class="btn-start hidden" id="startBtn" onclick="startGame()">Start Game!</button>
+            <p class="waiting" id="waitingMsg">Waiting for host...</p>
+        </div>
+        <div id="explainerScreen" class="hidden">
+            <div class="round-info" id="roundInfo"></div>
+            <p>You explain!</p>
+            <div class="word-display" id="currentWord"></div>
+            <div class="timer" id="timer"></div>
+            <button class="btn-guess" onclick="wordGuessed()">Guessed!</button>
+            <button class="btn-skip" onclick="skipWord()">Skip</button>
+        </div>
+        <div id="guesserScreen" class="hidden">
+            <div class="round-info" id="roundInfo2"></div>
+            <p class="waiting" id="explainerName"></p>
+            <div class="word-display">?</div>
+            <div class="timer" id="timer2"></div>
+            <p>Listen and guess!</p>
+        </div>
+        <div id="gameOverScreen" class="hidden">
+            <h1>Game Over!</h1>
+            <div class="player-list" id="finalScores"></div>
+            <button class="btn-create" onclick="location.reload()">Play Again</button>
+        </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let myId = null, isHost = false, timerInterval = null, players = [];
+        socket.on('connect', function() { myId = socket.id; });
+        function showScreen(id) {
+            document.querySelectorAll('.container > div').forEach(function(d) { d.classList.add('hidden'); });
+            document.getElementById(id).classList.remove('hidden');
+        }
+        function createRoom() {
+            var name = document.getElementById('playerName').value.trim();
+            if (!name) return alert('Enter your name!');
+            socket.emit('createRoom', { name: name, language: document.getElementById('language').value, roundTime: parseInt(document.getElementById('roundTime').value) });
+        }
+        function joinRoom() {
+            var name = document.getElementById('playerName').value.trim();
+            var roomId = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+            if (!name || !roomId) return alert('Fill all fields!');
+            socket.emit('joinRoom', { name: name, roomId: roomId });
+        }
+        socket.on('roomCreated', function(data) {
+            isHost = true;
+            document.getElementById('roomCode').textContent = data.roomId;
+            updateLobby(data.players);
+            document.getElementById('startBtn').classList.remove('hidden');
+            document.getElementById('waitingMsg').classList.add('hidden');
+            showScreen('lobbyScreen');
+        });
+        socket.on('playerJoined', function(data) {
+            updateLobby(data.players);
+            if (!isHost) {
+                document.getElementById('roomCode').textContent = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+                showScreen('lobbyScreen');
+            }
+        });
+        socket.on('playerLeft', function(data) { updateLobby(data.players); });
+        function updateLobby(p) {
+            players = p;
+            var html = '';
+            for (var i = 0; i < p.length; i++) {
+                html += '<div class="player-item"><span>' + (i+1) + '. ' + p[i].name + '</span>' + (i===0 ? '<span>host</span>' : '') + '</div>';
+            }
+            document.getElementById('lobbyPlayers').innerHTML = html;
+        }
+        function startGame() { socket.emit('startGame'); }
+        socket.on('roundStart', function(data) {
+            clearInterval(timerInterval);
+            if (data.players) players = data.players;
+            var explainer = null;
+            for (var i = 0; i < players.length; i++) { if (players[i].id === data.explainer) explainer = players[i]; }
+            var rt = 'Round ' + data.round + '/' + data.totalRounds;
+            if (data.explainer === myId) {
+                document.getElementById('roundInfo').textContent = rt;
+                showScreen('explainerScreen');
+            } else {
+                document.getElementById('roundInfo2').textContent = rt;
+                document.getElementById('explainerName').textContent = (explainer ? explainer.name : '?') + ' is explaining!';
+                showScreen('guesserScreen');
+            }
+            startTimer(data.roundTime);
+        });
+        socket.on('newWord', function(data) { document.getElementById('currentWord').textContent = data.word; });
+        socket.on('scoreUpdate', function(data) { players = data.players; });
+        function wordGuessed() { socket.emit('wordGuessed'); }
+        function skipWord() { socket.emit('skipWord'); }
+        function startTimer(s) {
+            var t = s;
+            updateTimerDisplay(t);
+            timerInterval = setInterval(function() { t--; updateTimerDisplay(t); if (t <= 0) clearInterval(timerInterval); }, 1000);
+        }
+        function updateTimerDisplay(t) {
+            var d = Math.floor(t/60) + ':' + (t%60 < 10 ? '0' : '') + (t%60);
+            var e1 = document.getElementById('timer');
+            var e2 = document.getElementById('timer2');
+            if (e1) { e1.textContent = d; e1.style.color = t <= 10 ? '#ff4444' : 'white'; }
+            if (e2) { e2.textContent = d; e2.style.color = t <= 10 ? '#ff4444' : 'white'; }
+        }
+        socket.on('gameOver', function(data) {
+            clearInterval(timerInterval);
+            var sorted = data.players.sort(function(a, b) { return b.score - a.score; });
+            var html = '';
+            for (var i = 0; i < sorted.length; i++) {
+                html += '<div class="player-item"><span>' + (i+1) + '. ' + sorted[i].name + '</span><span class="score">' + sorted[i].score + ' pts</span></div>';
+            }
+            document.getElementById('finalScores').innerHTML = html;
+            showScreen('gameOverScreen');
+        });
+        socket.on('error', function(data) { alert(data.message); });
+    </script>
+</body>
+</html>
+
