@@ -1,6 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
+  ні"engines": {
   "description": "",
   "main": "index.js",
   "scripts": {
