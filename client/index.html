@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Аліас Онлайн</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#1e1b4b,#581c87,#312e81);min-height:100vh;color:#fff;overflow-x:hidden}
+    .container{max-width:440px;margin:0 auto;padding:16px;min-height:100vh;display:flex;flex-direction:column}
+    .center{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1}
+    .card{background:rgba(255,255,255,.1);backdrop-filter:blur(12px);border-radius:16px;padding:20px;margin-bottom:12px;border:1px solid rgba(255,255,255,.1);width:100%}
+    .btn{padding:14px 24px;border-radius:12px;font-weight:700;font-size:16px;border:none;cursor:pointer;transition:all .2s;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+    .btn:hover{transform:scale(1.03)}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+    .btn-primary{background:linear-gradient(135deg,#facc15,#f59e0b);color:#3b0764}
+    .btn-secondary{background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff}
+    .btn-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
+    .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+    .btn-ghost{background:rgba(255,255,255,.15);color:#fff}
+    .btn-blue{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
+    .btn-red{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+    .btn-sm{padding:8px 16px;font-size:14px}
+    input[type="text"]{width:100%;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.1);color:#fff;font-size:18px;outline:none}
+    input[type="text"]:focus{border-color:rgba(250,204,21,.5);box-shadow:0 0 0 3px rgba(250,204,21,.2)}
+    input::placeholder{color:rgba(196,181,253,.6)}
+    .room-code{display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);color:#3b0764;padding:8px 24px;border-radius:50px;font-weight:900;font-size:28px;letter-spacing:.3em;cursor:pointer}
+    .team-card{border-radius:12px;padding:12px;border:2px solid;min-height:120px}
+    .team-blue{background:rgba(59,130,246,.15);border-color:rgba(59,130,246,.4)}
+    .team-red{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4)}
+    .team-member{background:rgba(255,255,255,.1);border-radius:8px;padding:4px 10px;font-size:14px;text-align:center;margin-bottom:4px}
+    .team-member.me{background:rgba(250,204,21,.2);color:#fde047;font-weight:700}
+    .badge{display:inline-block;padding:4px 12px;border-radius:50px;font-size:14px;font-weight:500;background:rgba(124,58,237,.4);border:1px solid rgba(124,58,237,.3);margin:2px}
+    .badge.me{background:rgba(250,204,21,.2);border-color:rgba(250,204,21,.4);color:#fde047}
+    .timer{font-size:96px;font-weight:900;text-align:center;font-variant-numeric:tabular-nums}
+    .timer.urgent{color:#f87171;animation:pulse 1s infinite}
+    .progress-bar{width:100%;height:10px;background:rgba(255,255,255,.1);border-radius:10px;overflow:hidden;margin:8px 0}
+    .progress-fill{height:100%;border-radius:10px;transition:width 1s linear;background:linear-gradient(90deg,#facc15,#f59e0b)}
+    .progress-fill.urgent{background:#ef4444}
+    .word-display{font-size:48px;font-weight:900;text-align:center;padding:24px 0}
+    .score-box{text-align:center;padding:12px 24px;border-radius:12px}
+    .score-box.active{background:rgba(255,255,255,.15);box-shadow:0 0 0 2px rgba(250,204,21,.5)}
+    .score-number{font-size:40px;font-weight:900}
+    .word-tag{display:inline-block;padding:2px 10px;border-radius:50px;font-size:12px;font-weight:600;margin:2px}
+    .word-tag.correct{background:rgba(34,197,94,.2);color:#86efac}
+    .word-tag.wrong{background:rgba(239,68,68,.2);color:#fca5a5}
+    .setting-btn{padding:6px 14px;border-radius:8px;border:none;font-weight:700;font-size:14px;cursor:pointer;background:rgba(255,255,255,.1);color:#c4b5fd;margin:2px}
+    .setting-btn.active{background:#facc15;color:#3b0764}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .flex-row{display:flex;gap:12px;align-items:center}
+    .flex-wrap{display:flex;flex-wrap:wrap;gap:6px}
+    .text-center{text-align:center}.mb-1{margin-bottom:4px}.mb-2{margin-bottom:8px}.mb-3{margin-bottom:12px}.mb-4{margin-bottom:16px}.mb-6{margin-bottom:24px}.mt-2{margin-top:8px}.w-full{width:100%}
+    .text-sm{font-size:14px}.text-xs{font-size:12px}.text-lg{font-size:20px}
+    .text-muted{color:#a78bfa}.text-yellow{color:#fde047}.text-blue{color:#93c5fd}.text-red{color:#fca5a5}.text-green{color:#86efac}
+    .hidden{display:none!important}
+    .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#6d28d9;padding:12px 24px;border-radius:12px;font-weight:600;z-index:100;animation:slideDown .3s ease}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+    .divider{position:relative;text-align:center;margin:16px 0}
+    .divider::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,.2)}
+    .divider span{position:relative;padding:0 12px;color:#a78bfa;font-size:14px}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+    @keyframes slideDown{from{transform:translateX(-50%) translateY(-20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div id="screen-home" class="center">
+    <div class="text-center mb-6" style="font-size:80px">🎯</div>
+    <h1 style="font-size:52px;font-weight:900;background:linear-gradient(135deg,#fde047,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px">АЛІАС</h1>
+    <p class="text-muted text-lg mb-6">Грай онлайн з друзями!</p>
+    <div class="card">
+      <label class="text-muted text-sm" style="display:block;margin-bottom:4px">Ваше імʼя</label>
+      <input type="text" id="input-name" placeholder="Як вас звати?" maxlength="15" class="mb-4">
+      <button class="btn btn-primary mb-3" onclick="createRoom()" style="font-size:18px;padding:16px">🏠 Створити кімнату</button>
+      <div class="divider"><span>або приєднатись</span></div>
+      <div class="flex-row">
+        <input type="text" id="input-code" placeholder="КОД" maxlength="6" style="flex:1;text-align:center;letter-spacing:.3em;font-weight:900;text-transform:uppercase">
+        <button class="btn btn-secondary" onclick="joinRoom()" style="width:auto;white-space:nowrap">Увійти →</button>
+      </div>
+      <p id="error-msg" class="text-sm mt-2 text-center hidden" style="color:#fca5a5;background:rgba(239,68,68,.1);padding:8px;border-radius:8px"></p>
+    </div>
+  </div>
+
+  <div id="screen-lobby" class="hidden">
+    <div class="text-center mb-3">
+      <h1 style="font-size:28px;font-weight:700">🏠 Кімната</h1>
+      <div class="room-code mb-1" id="lobby-code" onclick="copyCode()"></div>
+      <p class="text-xs text-muted">Натисніть щоб скопіювати</p>
+    </div>
+    <div class="card">
+      <h3 style="font-weight:700;margin-bottom:8px">👥 Гравці (<span id="player-count">0</span>)</h3>
+      <div class="flex-wrap" id="player-list"></div>
+    </div>
+    <div class="card" id="settings-card">
+      <h3 style="font-weight:700;margin-bottom:12px">⚙️ Налаштування</h3>
+      <div class="grid-2">
+        <div><label class="text-xs text-muted" style="display:block;margin-bottom:4px">Час раунду</label><div class="flex-wrap" id="time-settings"></div></div>
+        <div><label class="text-xs text-muted" style="display:block;margin-bottom:4px">Очки для перемоги</label><div class="flex-wrap" id="score-settings"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="font-weight:700">⚔️ Команди</h3>
+        <button class="setting-btn" id="btn-auto-assign" onclick="autoAssign()">🎲 Авто</button>
+      </div>
+      <div class="grid-2">
+        <div class="team-card team-blue">
+          <h4 class="text-center text-sm mb-2" style="font-weight:700">🔵 Команда 1</h4>
+          <div id="team1-members" style="min-height:50px;margin-bottom:8px"></div>
+          <button class="btn btn-blue btn-sm w-full" onclick="joinTeam('Команда 1')">Обрати</button>
+        </div>
+        <div class="team-card team-red">
+          <h4 class="text-center text-sm mb-2" style="font-weight:700">🔴 Команда 2</h4>
+          <div id="team2-members" style="min-height:50px;margin-bottom:8px"></div>
+          <button class="btn btn-red btn-sm w-full" onclick="joinTeam('Команда 2')">Обрати</button>
+        </div>
+      </div>
+    </div>
+    <div class="flex-row">
+      <button class="btn btn-ghost" onclick="goHome()" style="flex:1">← Вийти</button>
+      <button class="btn btn-primary" id="btn-start" onclick="startGame()" style="flex:1;font-size:18px" disabled>🚀 Старт!</button>
+    </div>
+    <p id="start-hint" class="text-center text-xs mt-2 text-yellow">Мінімум 1 гравець у кожній команді</p>
+    <p id="wait-host" class="text-center text-sm mt-2 text-muted hidden">Очікуємо хоста...</p>
+  </div>
+
+  <div id="screen-turn" class="center hidden">
+    <div id="turn-emoji" style="font-size:72px;margin-bottom:12px">🔵</div>
+    <p class="text-muted text-lg">Хід команди</p>
+    <h1 id="turn-team" style="font-size:36px;font-weight:900;margin-bottom:24px"></h1>
+    <div class="card text-center mb-4">
+      <p class="text-muted text-sm mb-1">Пояснює:</p>
+      <p id="turn-explainer" style="font-size:28px;font-weight:700"></p>
+      <p id="turn-you-hint" class="text-yellow text-sm mt-2 hidden" style="font-weight:600">Це ви! Готуйтеся 🔥</p>
+    </div>
+    <div class="grid-2 mb-4 w-full">
+      <div class="score-box" id="turn-score1"><p class="text-sm text-blue">🔵 Команда 1</p><p class="score-number" id="turn-score1-num">0</p></div>
+      <div class="score-box" id="turn-score2"><p class="text-sm text-red">🔴 Команда 2</p><p class="score-number" id="turn-score2-num">0</p></div>
+    </div>
+    <button class="btn btn-primary w-full" id="btn-start-round" onclick="startRound()" style="font-size:20px;padding:20px">▶️ Почати!</button>
+    <div id="wait-explainer" class="card text-center text-muted hidden">⏳ Чекаємо <span id="wait-explainer-name" style="color:#fff;font-weight:700"></span>...</div>
+  </div>
+
+  <div id="screen-play-explainer" class="center hidden">
+    <div id="play-timer" class="timer">60</div>
+    <div class="progress-bar"><div class="progress-fill" id="play-progress"></div></div>
+    <div class="text-center mb-3"><span class="text-muted text-sm">Раунд: </span><span id="play-round-score" style="font-size:24px;font-weight:900">0</span></div>
+    <div class="card text-center mb-4">
+      <p class="text-muted text-xs mb-2">ПОЯСНІТЬ 👇</p>
+      <div id="play-word" class="word-display"></div>
+    </div>
+    <div class="grid-2 mb-3 w-full">
+      <button class="btn btn-danger" onclick="wordSkip()" style="padding:28px;font-size:20px">❌ Пропуск</button>
+      <button class="btn btn-success" onclick="wordCorrect()" style="padding:28px;font-size:20px">✅ Вгадали!</button>
+    </div>
+    <div class="flex-wrap text-center" id="play-history"></div>
+  </div>
+
+  <div id="screen-play-guesser" class="center hidden">
+    <div id="guess-timer" class="timer">60</div>
+    <div class="progress-bar"><div class="progress-fill" id="guess-progress"></div></div>
+    <div class="card text-center mb-4">
+      <div style="font-size:64px;margin-bottom:12px">🤔</div>
+      <h2 style="font-size:24px;font-weight:700;margin-bottom:8px" id="guess-title">Вгадуйте!</h2>
+      <p class="text-muted" id="guess-subtitle"></p>
+    </div>
+    <div class="text-center mb-3"><span class="text-muted text-sm">Раунд: </span><span id="guess-round-score" style="font-size:24px;font-weight:900">0</span></div>
+    <div class="grid-2 w-full">
+      <div class="score-box"><p class="text-xs text-blue">Команда 1</p><p style="font-size:24px;font-weight:700" id="guess-score1">0</p></div>
+      <div class="score-box"><p class="text-xs text-red">Команда 2</p><p style="font-size:24px;font-weight:700" id="guess-score2">0</p></div>
+    </div>
+  </div>
+
+  <div id="screen-finished" class="center hidden">
+    <div style="font-size:80px;margin-bottom:12px" id="finish-emoji">🏆</div>
+    <h1 class="text-yellow" style="font-size:32px;font-weight:700;margin-bottom:4px" id="finish-title">Перемога!</h1>
+    <h2 style="font-size:36px;font-weight:900;margin-bottom:24px" id="finish-winner"></h2>
+    <div class="card mb-6 w-full">
+      <div class="grid-2">
+        <div class="score-box" id="finish-box1"><p class="text-sm text-blue">🔵 Команда 1</p><p class="score-number" id="finish-score1">0</p></div>
+        <div class="score-box" id="finish-box2"><p class="text-sm text-red">🔴 Команда 2</p><p class="score-number" id="finish-score2">0</p></div>
+      </div>
+    </div>
+    <button class="btn btn-primary w-full mb-3" onclick="playAgain()" style="font-size:18px;padding:16px">🔄 Грати ще!</button>
+    <button class="btn btn-ghost w-full" onclick="goHome()">🏠 На головну</button>
+  </div>
+
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<div id="round-end-overlay" class="overlay hidden">
+  <div class="card" style="max-width:360px;max-height:70vh;overflow-y:auto">
+    <h3 class="text-center" style="font-weight:700;font-size:18px;margin-bottom:8px">Результат раунду</h3>
+    <p class="text-center mb-3" style="font-size:28px;font-weight:900" id="round-end-score"></p>
+    <div id="round-end-words"></div>
+  </div>
+</div>
+
+<script>
+const socket=io();let myName="",myId=socket.id,roomCode="",gameState=null,prevState=null;
+socket.on("connect",()=>{myId=socket.id});
+const screens=["home","lobby","turn","play-explainer","play-guesser","finished"];
+function showScreen(n){screens.forEach(s=>document.getElementById("screen-"+s).classList.add("hidden"));document.getElementById("screen-"+n).classList.remove("hidden")}
+function createRoom(){const n=document.getElementById("input-name").value.trim();if(!n)return;myName=n;socket.emit("create_room",{playerName:n},r=>{if(r.success){roomCode=r.roomCode;showScreen("lobby");hideError()}})}
+function joinRoom(){const n=document.getElementById("input-name").value.trim(),c=document.getElementById("input-code").value.trim().toUpperCase();if(!n||!c)return;myName=n;socket.emit("join_room",{roomCode:c,playerName:n},r=>{if(r.success){roomCode=r.roomCode;if(r.assignedName)myName=r.assignedName;showScreen("lobby");hideError()}else showError(r.error)})}
+function joinTeam(t){socket.emit("join_team",{roomCode,teamName:t})}
+function autoAssign(){socket.emit("auto_assign",{roomCode})}
+function startGame(){socket.emit("start_game",{roomCode})}
+function startRound(){socket.emit("start_round",{roomCode})}
+function wordCorrect(){socket.emit("word_correct",{roomCode})}
+function wordSkip(){socket.emit("word_skip",{roomCode})}
+function playAgain(){socket.emit("play_again",{roomCode})}
+function goHome(){showScreen("home");roomCode="";gameState=null}
+function copyCode(){navigator.clipboard?.writeText(roomCode);showToast("Код скопійовано! 📋")}
+function updateSettings(k,v){socket.emit("update_settings",{roomCode,settings:{[k]:v}})}
+function showError(m){const e=document.getElementById("error-msg");e.textContent=m;e.classList.remove("hidden")}
+function hideError(){document.getElementById("error-msg").classList.add("hidden")}
+function showToast(m){const e=document.getElementById("toast");e.textContent=m;e.classList.remove("hidden");setTimeout(()=>e.classList.add("hidden"),2500)}
+
+socket.on("game_state",s=>{if(prevState==="playing"&&s.state==="turn_start")showRoundEnd(s.roundWords||[],s.roundScore||0);prevState=s.state;gameState=s;renderState(s)});
+socket.on("timer_tick",({timeLeft})=>{if(!gameState)return;gameState.timeLeft=timeLeft;updateTimerDisplay(timeLeft)});
+socket.on("player_left",({name})=>showToast(name+" вийшов"));
+
+function renderState(s){const isHost=s.hostId===myId,isExplainer=s.currentExplainer===myName,myTeam=s.players.find(p=>p.id===myId)?.team;
+if(s.state==="lobby"){showScreen("lobby");renderLobby(s,isHost)}
+else if(s.state==="turn_start"){showScreen("turn");renderTurnStart(s,isExplainer)}
+else if(s.state==="playing"){if(isExplainer){showScreen("play-explainer");renderPlayExplainer(s)}else{showScreen("play-guesser");renderPlayGuesser(s,myTeam)}}
+else if(s.state==="finished"){showScreen("finished");renderFinished(s,myTeam)}}
+
+function renderLobby(s,isHost){
+document.getElementById("lobby-code").textContent=s.code;
+document.getElementById("player-count").textContent=s.players.length;
+document.getElementById("player-list").innerHTML=s.players.map(p=>'<span class="badge '+(p.id===myId?"me":"")+'">'+( p.id===s.hostId?"👑 ":"")+p.name+(p.id===myId?" (ви)":"")+"</span>").join("");
+if(isHost){document.getElementById("settings-card").classList.remove("hidden");
+document.getElementById("time-settings").innerHTML=[30,45,60,90].map(t=>'<button class="setting-btn '+(s.settings.roundTime===t?"active":"")+'" onclick="updateSettings(\'roundTime\','+t+')">'+t+"</button>").join("");
+document.getElementById("score-settings").innerHTML=[20,30,50].map(t=>'<button class="setting-btn '+(s.settings.winningScore===t?"active":"")+'" onclick="updateSettings(\'winningScore\','+t+')">'+t+"</button>").join("")}
+else document.getElementById("settings-card").classList.add("hidden");
+renderTeamMembers("team1-members",s.teams["Команда 1"]);renderTeamMembers("team2-members",s.teams["Команда 2"]);
+const canStart=s.teams["Команда 1"].length>=1&&s.teams["Команда 2"].length>=1;
+if(isHost){document.getElementById("btn-start").classList.remove("hidden");document.getElementById("btn-start").disabled=!canStart;document.getElementById("wait-host").classList.add("hidden");document.getElementById("btn-auto-assign").classList.remove("hidden");document.getElementById("start-hint").classList.toggle("hidden",canStart)}
+else{document.getElementById("btn-start").classList.add("hidden");document.getElementById("wait-host").classList.remove("hidden");document.getElementById("btn-auto-assign").classList.add("hidden");document.getElementById("start-hint").classList.add("hidden")}}
+
+function renderTeamMembers(id,members){const el=document.getElementById(id);if(members.length===0)el.innerHTML='<p class="text-xs text-muted text-center" style="padding:12px 0">Порожньо</p>';else el.innerHTML=members.map(n=>'<div class="team-member '+(n===myName?"me":"")+'">'+n+"</div>").join("")}
+
+function renderTurnStart(s,isExplainer){const isBlue=s.currentTeam==="Команда 1";
+document.getElementById("turn-emoji").textContent=isBlue?"🔵":"🔴";
+document.getElementById("turn-team").textContent=s.currentTeam;
+document.getElementById("turn-team").style.color=isBlue?"#93c5fd":"#fca5a5";
+document.getElementById("turn-explainer").textContent=s.currentExplainer+" 🎤";
+document.getElementById("turn-score1-num").textContent=s.scores["Команда 1"];
+document.getElementById("turn-score2-num").textContent=s.scores["Команда 2"];
+document.getElementById("turn-score1").className="score-box"+(s.currentTeam==="Команда 1"?" active":"");
+document.getElementById("turn-score2").className="score-box"+(s.currentTeam==="Команда 2"?" active":"");
+if(isExplainer){document.getElementById("turn-you-hint").classList.remove("hidden");document.getElementById("btn-start-round").classList.remove("hidden");document.getElementById("wait-explainer").classList.add("hidden")}
+else{document.getElementById("turn-you-hint").classList.add("hidden");document.getElementById("btn-start-round").classList.add("hidden");document.getElementById("wait-explainer").classList.remove("hidden");document.getElementById("wait-explainer-name").textContent=s.currentExplainer}}
+
+function renderPlayExplainer(s){updateTimerDisplay(s.timeLeft);const rs=s.roundScore,rEl=document.getElementById("play-round-score");rEl.textContent=(rs>0?"+":"")+rs;rEl.style.color=rs>0?"#86efac":rs<0?"#fca5a5":"white";
+document.getElementById("play-word").textContent=s.currentWord;
+document.getElementById("play-history").innerHTML=(s.roundWords||[]).slice(-10).map(w=>'<span class="word-tag '+(w.correct?"correct":"wrong")+'">'+(w.correct?"✓":"✗")+" "+w.word+"</span>").join("")}
+
+function renderPlayGuesser(s,myTeam){updateTimerDisplay(s.timeLeft);const isMyTeam=myTeam===s.currentTeam;
+document.getElementById("guess-title").textContent=isMyTeam?"Вгадуйте!":"Спостерігайте";
+const sub=document.getElementById("guess-subtitle");
+if(isMyTeam)sub.innerHTML='<strong style="color:#fff">'+s.currentExplainer+"</strong> пояснює";
+else sub.innerHTML='Грає <strong style="color:'+(s.currentTeam==="Команда 1"?"#93c5fd":"#fca5a5")+'">'+s.currentTeam+"</strong>";
+const rs=s.roundScore,rEl=document.getElementById("guess-round-score");rEl.textContent=(rs>0?"+":"")+rs;rEl.style.color=rs>0?"#86efac":rs<0?"#fca5a5":"white";
+document.getElementById("guess-score1").textContent=s.scores["Команда 1"];document.getElementById("guess-score2").textContent=s.scores["Команда 2"]}
+
+function renderFinished(s,myTeam){const winner=s.winner||"Команда 1",isBlue=winner==="Команда 1",myWon=myTeam===winner;
+document.getElementById("finish-emoji").textContent=myWon?"🏆":"😢";
+document.getElementById("finish-title").textContent=myWon?"Ви перемогли!":"Перемога!";
+document.getElementById("finish-winner").textContent=winner+(isBlue?" 🔵":" 🔴");
+document.getElementById("finish-winner").style.color=isBlue?"#93c5fd":"#fca5a5";
+document.getElementById("finish-score1").textContent=s.scores["Команда 1"];document.getElementById("finish-score2").textContent=s.scores["Команда 2"];
+document.getElementById("finish-box1").className="score-box"+(winner==="Команда 1"?" active":"");document.getElementById("finish-box2").className="score-box"+(winner==="Команда 2"?" active":"")}
+
+function updateTimerDisplay(tl){if(!gameState)return;const rt=gameState.settings?.roundTime||60,pr=((rt-tl)/rt)*100,u=tl<=10;
+const et=document.getElementById("play-timer");if(et){et.textContent=tl;et.className="timer"+(u?" urgent":"")}
+const ep=document.getElementById("play-progress");if(ep){ep.style.width=(100-pr)+"%";ep.className="progress-fill"+(u?" urgent":"")}
+const gt=document.getElementById("guess-timer");if(gt){gt.textContent=tl;gt.className="timer"+(u?" urgent":"")}
+const gp=document.getElementById("guess-progress");if(gp){gp.style.width=(100-pr)+"%";gp.className="progress-fill"+(u?" urgent":"")}}
+
+function showRoundEnd(words,score){const o=document.getElementById("round-end-overlay");
+document.getElementById("round-end-score").textContent=(score>0?"+":"")+score+" очок";
+document.getElementById("round-end-score").style.color=score>=0?"#86efac":"#fca5a5";
+document.getElementById("round-end-words").innerHTML=words.map(w=>'<div style="display:flex;justify-content:space-between;padding:6px 12px;border-radius:8px;margin-bottom:4px;font-size:14px;background:'+(w.correct?"rgba(34,197,94,.15)":"rgba(239,68,68,.15)")+";color:"+(w.correct?"#86efac":"#fca5a5")+'"><span>'+w.word+"</span><span>"+(w.correct?"✅":"❌")+"</span></div>").join("");
+o.classList.remove("hidden");setTimeout(()=>o.classList.add("hidden"),3500)}
+
+document.getElementById("input-name").addEventListener("keydown",e=>{if(e.key==="Enter")createRoom()});
+document.getElementById("input-code").addEventListener("keydown",e=>{if(e.key==="Enter")joinRoom()});
+document.getElementById("input-code").addEventListener("input",e=>{e.target.value=e.target.value.toUpperCase()});
+</script>
+</body>
+</html>
